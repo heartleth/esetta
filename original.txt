@@ -1,8 +1,8 @@
-s.gorbe raxtexāb zir-e
-s.xåne kuh zir-e
-s.čahārpāye miz zir-e
-s.ğāyeğ pol zir-e
-s.amānat dar zir-e
-s.šahr āftāb zir-e
-s.nāme ketāb zir-e
-s.ketāb komod zir-e
+n.침대 밑의 고양이
+n.산 밑의 집
+n.탁자 밑의 의자
+n.다리 밑의 배
+n.문 밑의 소포
+n.태양 밑의 도시
+n.책 밑의 편지
+n.책장 밑의 책
