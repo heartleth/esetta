@@ -6,6 +6,8 @@ mod phrase;
 use phrase::*;
 mod assemble;
 use assemble::*;
+mod deduce;
+use deduce::*;
 
 fn main() {
     let original = fs::read_to_string("original.txt").unwrap();
@@ -119,23 +121,34 @@ fn main() {
     }
     
     sentence_idx = 0;
+    // let mut freshmen :HashMap<&str, Vec<(Rule, Rule)>> = HashMap::new();
+    
     for (s, d) in izip!(&original, &translated) {
         if !clear_sentence.contains(&sentence_idx) {
             let words_s :Vec<&str> = s.split('.').last().unwrap().split(' ').collect();
             let words_d :Vec<&str> = d.split(' ').collect();
             let part = s.split('.').next().unwrap();
-            let rule = spread_phrase(&match_phrase(&words_s, part, &rules, &dictionary).unwrap().1, &vocab, &dictionary, 0);
-
-            let mut i = 0;
-            for pattern in rule.0 {
-                if let Template((n, p)) = pattern {
-                    vocab_rev.insert(words_d[i], (rule.1[n], p));
+            if let Ok((_, template)) = &match_phrase(&words_s, part, &rules.iter().map(|(k, v)|(*k, v)).collect(), &dictionary) {
+                let rule = spread_phrase(template, &vocab, &dictionary, 0);
+                let mut i = 0;
+                for pattern in rule.0 {
+                    if let Template((n, p)) = pattern {
+                        vocab_rev.insert(words_d[i], (rule.1[n], p));
+                    }
+                    i += 1;
                 }
-                i += 1;
+            }
+            else {
+                if let Ok(v) = deduce_rule((&words_s, &words_d), part, &rules, &dictionary) {
+                    for (p, r) in v {
+                        rules.get_mut(p).unwrap().push(r);
+                    }
+                }
             }
         }
         sentence_idx += 1;
     }
+    
     for (k, v) in &vocab_rev {
         println!("{}. {} = {}", v.1, v.0, k);
     }

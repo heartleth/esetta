@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 
 #[derive(PartialEq, Debug)]
 pub enum Phrase<'a> {
@@ -7,6 +8,25 @@ pub enum Phrase<'a> {
 #[derive(Clone, Debug)]
 pub enum Ready<'a> {
     Template((&'a(Rule<'a>, Rule<'a>), HashMap<usize, Ready<'a>>)), Voca(&'a str)
+}
+impl<'a> std::fmt::Display for Ready<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Ready::Template((rule, voca)) => {
+                let mut s = String::new();
+                for elem in &rule.0 {
+                    if let Template((i, p)) = elem {
+                        s += &format!(" ({}.{})", p, voca[i])[..];
+                    }
+                    else if let Voca(v) = elem {
+                        s += &format!(" {}", v)[..];
+                    }
+                }
+                write!(f, "{}", s)
+            },
+            Ready::Voca(v) => write!(f, "{}", v),
+        }
+    }
 }
 pub use Phrase::*;
 pub type Rule<'a> = Vec<Phrase<'a>>;
@@ -35,8 +55,8 @@ impl<'r> Candidate<'r> {
     }
 }
 
-pub fn match_phrase<'h>(phrase :&Vec<&'h str>, part :&str, rules :&'h HashMap<&str, Vec<(Rule, Rule)>>, dictionary :&HashMap<&str, &str>)
-    ->std::result::Result<(usize, Ready<'h>), ()> {
+pub fn match_phrase<'p>(phrase :&Vec<&'p str>, part :&str, rules :&HashMap<&str, &'p Vec<(Rule, Rule)>>, dictionary :&HashMap<&str, &str>)
+    ->std::result::Result<(usize, Ready<'p>), ()> {
     if let Some(ruleset) = rules.get(part) {
         let mut candidates :Vec<Candidate> = ruleset.iter().enumerate().map(|(i, x)| Candidate {
             pair: &x,
@@ -50,7 +70,7 @@ pub fn match_phrase<'h>(phrase :&Vec<&'h str>, part :&str, rules :&'h HashMap<&s
         let mut word_idx = 0;
         for word in phrase {
             for candidate in &mut candidates {
-                if candidate.index <= word_idx || candidate.progress == candidate.rule.len() {
+                if candidate.index <= word_idx || candidate.progress < candidate.rule.len() {
                     let pattern = candidate.pattern().unwrap();
                     if let Voca(v) = pattern {
                         if word == v {
@@ -107,8 +127,8 @@ pub fn match_phrase<'h>(phrase :&Vec<&'h str>, part :&str, rules :&'h HashMap<&s
                             candidate.update(num, w.1);
                             candidate.index += w.0;
                         }
-                        candidate.next();
                         candidate.virgin = false;
+                        candidate.next();
                     }
                 }
             }
@@ -162,6 +182,7 @@ pub fn match_phrase<'h>(phrase :&Vec<&'h str>, part :&str, rules :&'h HashMap<&s
             return Ok((1, Ready::Voca(phrase.first().unwrap())));
         }
         else {
+            println!("{}. {}", part, phrase.join(" "));
             return Err(());
         }
     }
