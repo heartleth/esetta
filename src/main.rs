@@ -24,9 +24,9 @@ fn main() {
         })
         .collect();
     
-    let mut rules :HashMap<&str, Vec<(Rule, Rule)>> = HashMap::new();
+    let mut rules :HashMap<String, Vec<(Rule, Rule)>> = HashMap::new();
     let mut vocab :HashMap<&str, Vec<&str>> = HashMap::new();
-    let mut vocab_rev :HashMap<&str, (&str, &str)> = HashMap::new();
+    let mut vocab_rev :HashMap<&str, (&str, String)> = HashMap::new();
     let mut clear_vocab :HashSet<&str> = HashSet::new();
     let mut clear_sentence :HashSet<usize> = HashSet::new();
 
@@ -38,7 +38,7 @@ fn main() {
         let mut matching_idx :Vec<usize> = vec![0; words_d.len()];
         let mut word_idx = 0;
         
-        let template :Rule = words_s.iter().enumerate().map(|(i, x)| Template((i, dictionary.get(x).unwrap_or(&"n")))).collect();
+        let template :Rule = words_s.iter().enumerate().map(|(i, x)| Template((i, dictionary.get(x).unwrap_or(&"n").to_string()))).collect();
         
         for word in words_s {
             if !vocab.contains_key(word) {
@@ -46,11 +46,11 @@ fn main() {
                 if v.len() == 1 {
                     clear_vocab.insert(v[0]);
                     if let Some(p) = dictionary.get(word) {
-                        vocab_rev.insert(v[0], (word, p));
+                        vocab_rev.insert(v[0], (word, p.to_string()));
                     }
                     else {
                         dictionary.insert(word, "n");
-                        vocab_rev.insert(v[0], (word, "n"));
+                        vocab_rev.insert(v[0], (word, "n".to_string()));
                     }
                     let pair = &v[0];
                     matching_idx[words_d.iter().position(|x|x==pair).unwrap()] = word_idx;
@@ -63,11 +63,11 @@ fn main() {
                 if candidates.len() == 1 {
                     clear_vocab.insert(candidates[0]);
                     if let Some(p) = dictionary.get(word) {
-                        vocab_rev.insert(candidates[0], (word, p));
+                        vocab_rev.insert(candidates[0], (word, p.to_string()));
                     }
                     else {
                         dictionary.insert(word, "n");
-                        vocab_rev.insert(candidates[0], (word, "n"));
+                        vocab_rev.insert(candidates[0], (word, "n".to_string()));
                     }
                     let pair = &vocab[word][0];
                     matching_idx[words_d.iter().position(|x|x==pair).unwrap()] = word_idx;
@@ -85,11 +85,11 @@ fn main() {
                 if v.len() == 1 {
                     clear_vocab.insert(v[0]);
                     if let Some(p) = dictionary.get(k) {
-                        vocab_rev.insert(v[0], (k, p));
+                        vocab_rev.insert(v[0], (k, p.to_string()));
                     }
                     else {
                         dictionary.insert(k, "n");
-                        vocab_rev.insert(v[0], (k, "n"));
+                        vocab_rev.insert(v[0], (k, "n".to_string()));
                     }
                 }
             }
@@ -98,7 +98,7 @@ fn main() {
         let mut idx = 0;
         for word in &words_d {
             if let Some((_, part)) = vocab_rev.get(word) {
-                template_t.push(Template((matching_idx[idx], part)));
+                template_t.push(Template((matching_idx[idx], part.to_string())));
                 idx += 1;
             }
             else {
@@ -114,34 +114,41 @@ fn main() {
                 }
             }
             else {
-                rules.insert(part, vec![template]);
+                rules.insert(part.to_string(), vec![template]);
             }
         }
         sentence_idx += 1;
     }
-    
-    sentence_idx = 0;
-    // let mut freshmen :HashMap<&str, Vec<(Rule, Rule)>> = HashMap::new();
     
     for (s, d) in izip!(&original, &translated) {
         if !clear_sentence.contains(&sentence_idx) {
             let words_s :Vec<&str> = s.split('.').last().unwrap().split(' ').collect();
             let words_d :Vec<&str> = d.split(' ').collect();
             let part = s.split('.').next().unwrap();
-            if let Ok((_, template)) = &match_phrase(&words_s, part, &rules.iter().map(|(k, v)|(*k, v)).collect(), &dictionary) {
+            if let Ok((_, template)) = &match_phrase(&words_s, part, rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|x|x).collect();(x.0.to_string(), k)}).collect(), &dictionary) {
                 let rule = spread_phrase(template, &vocab, &dictionary, 0);
                 let mut i = 0;
                 for pattern in rule.0 {
                     if let Template((n, p)) = pattern {
-                        vocab_rev.insert(words_d[i], (rule.1[n], p));
+                        let word = words_d[i];
+                        let rule = rule.1[n];
+                        let p = String::from(p);
+                        vocab_rev.insert(word, (rule, p));
                     }
                     i += 1;
                 }
             }
-            else {
-                if let Ok(v) = deduce_rule((&words_s, &words_d), part, &rules, &dictionary) {
-                    for (p, r) in v {
-                        rules.get_mut(p).unwrap().push(r);
+            
+            if let Ok(v) = deduce_rule((&words_s, &words_d), part, &rules, &dictionary) {
+                for (p, r) in v {
+                    println!("{:?}", r);
+                    if let Some(v) = rules.get_mut(part) {
+                        if !v.contains(&r) {
+                            v.push(r);
+                        }
+                    }
+                    else {
+                        rules.insert(p, vec![r]);
                     }
                 }
             }

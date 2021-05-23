@@ -1,9 +1,9 @@
 use super::*;
 
-pub fn deduce_rule<'h>((words_s, _word_t) :(&Vec<&'h str>, &Vec<&'h str>), part :&str, rules :&'h HashMap<&str, Vec<(Rule, Rule)>>, dictionary :&'h HashMap<&'h str, &str>)->std::result::Result<Vec<(&'h str, (Rule<'h>, Rule<'h>))>, ()> {
+pub fn deduce_rule<'h, 'v>((words_s, _word_t) :(&Vec<&'h str>, &Vec<&'h str>), part :&str, rules :&HashMap<String, Vec<(Rule<'h, 'v>, Rule)>>, dictionary :&'h HashMap<&'h str, &str>)->std::result::Result<Vec<(String, (Rule<'h, 'v>, Rule<'h, 'v>))>, ()> {
     if let Some(ruleset) = rules.get(part) {
         for (rule, _) in ruleset {
-            let mut ret :Vec<(&'h str, (Rule<'h>, Rule<'h>))> = Vec::new();
+            let mut ret :Vec<(String, (Rule<'h, 'v>, Rule<'h, 'v>))> = Vec::new();
             let mut index = 0;
             let mut progress = 0;
             for pattern in rule {
@@ -15,23 +15,21 @@ pub fn deduce_rule<'h>((words_s, _word_t) :(&Vec<&'h str>, &Vec<&'h str>), part 
                             if progress == rule.len() - 1 {
                                 if index < words_s.len() - 1 {
                                     for word in &words_s[index..] {
-                                        template.push(Template((i, &dictionary[word])));
+                                        template.push(Template((i, dictionary[word].to_string())));
                                         i += 1;
                                     }
                                     index += i;
-                                    // println!("{}. {:?}", p, template);
-                                    ret.push((p, (template, Vec::new())));
+                                    ret.push((p.to_string(), (template, Vec::new())));
                                 }
                                 else {
                                     index += 1;
                                 }
                             }
                             else {
-                                println!("{} / {}", &words_s[index..].join(" "), p);
-                                let w = match_phrase(&words_s[index..].to_vec(), p, &rules.iter().map(|(k, v)|(*k, v)).collect(), dictionary);
+                                let w = match_phrase(&words_s[index..].to_vec(), p, rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|x|x).collect();(x.0.to_string(), k)}).collect(), dictionary);
                                 if let Ok(w) = w {
                                     index += w.0;
-                                    template.push(Template((i, p)));
+                                    template.push(Template((i, p.to_string())));
                                 }
                                 i = 1;
                                 let next_word = words_s[index];
@@ -41,18 +39,16 @@ pub fn deduce_rule<'h>((words_s, _word_t) :(&Vec<&'h str>, &Vec<&'h str>), part 
                                     Voca(v) => next_word == *v
                                 } {
                                     if let Template((_, p)) = next_pattern {
-                                        // if *p == "v" {
-                                            for word in &words_s[index..] {
-                                                if dictionary[word] == /*"v"*/ *p {
-                                                    break;
-                                                }
-                                                else {
-                                                    template.push(Template((i, dictionary[word])));
-                                                    i += 1;
-                                                }
+                                        for word in &words_s[index..] {
+                                            if dictionary[word] == *p {
+                                                break;
                                             }
-                                            index += i - 1;
-                                        // }
+                                            else {
+                                                template.push(Template((i, dictionary[word].to_string())));
+                                                i += 1;
+                                            }
+                                        }
+                                        index += i - 1;
                                     }
                                     else if let Voca(v) = next_pattern {
                                         for word in &words_s[index..] {
@@ -60,14 +56,13 @@ pub fn deduce_rule<'h>((words_s, _word_t) :(&Vec<&'h str>, &Vec<&'h str>), part 
                                                 break;
                                             }
                                             else {
-                                                template.push(Template((i, dictionary[word])));
+                                                template.push(Template((i, dictionary[word].to_string())));
                                                 i += 1;
                                             }
                                         }
                                         index += i - 1;
                                     }
-                                    // println!("{}. {:?}", p, template);
-                                    ret.push((p, (template, Vec::new())));
+                                    ret.push((p.to_string(), (template, Vec::new())));
                                 }
                             }
                         }
