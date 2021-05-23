@@ -55,12 +55,13 @@ impl<'r, 'v> Candidate<'r, 'v> {
     }
 }
 
-pub fn match_phrase<'v, 'p>(phrase :&Vec<&'v str>, part :&str, rules :HashMap<String, Vec<&'p (Rule<'p, 'v>, Rule<'p, 'v>)>>, dictionary :&HashMap<&str, &str>)
+pub fn match_phrase<'v, 'p>(phrase :&Vec<&'v str>, part :&str, rules :HashMap<String, Vec<&'p (Rule<'p, 'v>, Rule<'p, 'v>)>>, dictionary :&HashMap<&str, &str>, which_rule :usize)
     ->std::result::Result<(usize, Ready<'p, 'v>), ()> {
-    if let Some(ruleset) = rules.get(part) {
+        
+    if let Some(ruleset) = rules.get(&part.to_string()) {
         let mut candidates :Vec<Candidate> = ruleset.iter().enumerate().map(|(i, x)| Candidate {
             pair: &x,
-            rule: &x.0,
+            rule: if which_rule==0{ &x.0 } else { &x.1 },
             progress: 0,
             virgin: true,
             index: i,
@@ -70,7 +71,7 @@ pub fn match_phrase<'v, 'p>(phrase :&Vec<&'v str>, part :&str, rules :HashMap<St
         let mut word_idx = 0;
         for word in phrase {
             for candidate in &mut candidates {
-                if candidate.index <= word_idx || candidate.progress < candidate.rule.len() {
+                if candidate.index <= word_idx && candidate.progress < candidate.rule.len() {
                     let pattern = candidate.pattern().unwrap();
                     if let Voca(v) = pattern {
                         if word == v {
@@ -96,7 +97,7 @@ pub fn match_phrase<'v, 'p>(phrase :&Vec<&'v str>, part :&str, rules :HashMap<St
                                     }
                                 }
                                 if ok {
-                                    if let Ok(e) = match_phrase(&phrase[..k].to_vec(), part, rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|&x|x).collect();(x.0.to_string(), k)}).collect(), dictionary) {
+                                    if let Ok(e) = match_phrase(&phrase[..k].to_vec(), part, rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|&x|x).collect();(x.0.to_string(), k)}).collect(), dictionary, which_rule) {
                                         if e.0 != k {
                                             candidate.drop();
                                         }
@@ -121,10 +122,15 @@ pub fn match_phrase<'v, 'p>(phrase :&Vec<&'v str>, part :&str, rules :HashMap<St
                             }
                         }
                         else {
-                            let w = match_phrase(&phrase[word_idx..].to_vec(), &p[..], rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|&x|x).collect();(x.0.to_string(), k)}).collect(), dictionary)?;
-                            let num = *num;
-                            candidate.update(num, w.1);
-                            candidate.index += w.0;
+                            let w = match_phrase(&phrase[word_idx..].to_vec(), &p[..], rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|&x|x).collect();(x.0.to_string(), k)}).collect(), dictionary, which_rule);
+                            if let Ok(w) = w {
+                                let num = *num;
+                                candidate.update(num, w.1);
+                                candidate.index += w.0;
+                            }
+                            else {
+                                candidate.drop();
+                            }
                         }
                         candidate.virgin = false;
                         candidate.next();
@@ -153,7 +159,7 @@ pub fn match_phrase<'v, 'p>(phrase :&Vec<&'v str>, part :&str, rules :HashMap<St
             return Ok((candidates[best_candidate].index, Ready::Template((e, vocabs))));
         }
         else if part == "n" {
-            if dictionary.get(phrase.first().unwrap()).unwrap_or(&"n") == &"n" {
+            if dictionary.get(phrase.first().unwrap()) == Some(&"n") {
                 return Ok((1, Ready::Voca(phrase.first().unwrap())));
             }
             else {

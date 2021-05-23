@@ -121,11 +121,11 @@ fn main() {
     }
     
     for (s, d) in izip!(&original, &translated) {
+        let words_s :Vec<&str> = s.split('.').last().unwrap().split(' ').collect();
+        let words_d :Vec<&str> = d.split(' ').collect();
+        let part = s.split('.').next().unwrap();
         if !clear_sentence.contains(&sentence_idx) {
-            let words_s :Vec<&str> = s.split('.').last().unwrap().split(' ').collect();
-            let words_d :Vec<&str> = d.split(' ').collect();
-            let part = s.split('.').next().unwrap();
-            if let Ok((_, template)) = &match_phrase(&words_s, part, rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|x|x).collect();(x.0.to_string(), k)}).collect(), &dictionary) {
+            if let Ok((_, template)) = &match_phrase(&words_s, part, rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|x|x).collect();(x.0.to_string(), k)}).collect(), &dictionary, 0) {
                 let rule = spread_phrase(template, &vocab, &dictionary, 0);
                 let mut i = 0;
                 for pattern in rule.0 {
@@ -138,17 +138,35 @@ fn main() {
                     i += 1;
                 }
             }
-            
-            if let Ok(v) = deduce_rule((&words_s, &words_d), part, &rules, &dictionary) {
-                for (p, r) in v {
-                    println!("{:?}", r);
-                    if let Some(v) = rules.get_mut(part) {
-                        if !v.contains(&r) {
-                            v.push(r);
+        }
+        if let Ok(v) = deduce_rule(&words_s, part, rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|x|x).collect();(x.0.to_string(), k)}).collect(), &dictionary) {
+            let w = deduce_pair_rule(&words_d, v.1, &v.0, rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|x|x).collect();(x.0.to_string(), k)}).collect(), &vocab_rev.iter().map(|(k,(_,p))|(*k,&p[..])).collect());
+            if let Ok(freshmen) = w {
+                for (p, (o, t)) in freshmen {
+                    if let Some(v) = rules.get_mut(&p) {
+                        let c = (o.clone(), t.clone());
+                        if !v.contains(&c) {
+                            v.push(c);
                         }
                     }
                     else {
-                        rules.insert(p, vec![r]);
+                        rules.insert(p.clone(), vec![(o.clone(), t.clone())]);
+                    }
+                }
+                
+                if !clear_sentence.contains(&sentence_idx) {
+                    if let Ok((_, template)) = &match_phrase(&words_s, part, rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|x|x).collect();(x.0.to_string(), k)}).collect(), &dictionary, 0) {
+                        let rule = spread_phrase(template, &vocab, &dictionary, 0);
+                        let mut i = 0;
+                        for pattern in rule.0 {
+                            if let Template((n, p)) = pattern {
+                                let word = words_d[i];
+                                let rule = rule.1[n];
+                                let p = String::from(p);
+                                vocab_rev.insert(word, (rule, p));
+                            }
+                            i += 1;
+                        }
                     }
                 }
             }
@@ -158,5 +176,8 @@ fn main() {
     
     for (k, v) in &vocab_rev {
         println!("{}. {} = {}", v.1, v.0, k);
+    }
+    if translated.iter().map(|s|s.split(' ').map(|x|vocab_rev.contains_key(x)).fold(true, |a, b| a && b)).fold(true, |a, b| a && b) {
+        println!("올클리어!");
     }
 }
