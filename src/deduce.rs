@@ -101,16 +101,20 @@ pub fn deduce_pair_rule<'h, 'v>(words_t :&Vec<&'v str>, rule: &(Rule<'h, 'v>, Ru
                         if index < words_t.len() - 1 {
                             let mut clear :HashSet<usize> = HashSet::new();
                             for word in &words_t[index..] {
-                                let part = dictionary[word];
-                                for pattern in t {
-                                    if let Template((i, p)) = pattern {
-                                        if p == part {
-                                            if !clear.contains(i) {
-                                                template.push(Template((*i, dictionary[word].to_string())));
-                                                clear.insert(*i);
+                                if let Some(part) = dictionary.get(word) {
+                                    for pattern in t {
+                                        if let Template((i, p)) = pattern {
+                                            if p == part {
+                                                if !clear.contains(i) {
+                                                    template.push(Template((*i, dictionary[word].to_string())));
+                                                    clear.insert(*i);
+                                                }
                                             }
                                         }
                                     }
+                                }
+                                else {
+                                    template.push(Voca(word));
                                 }
                                 i += 1;
                             }
@@ -136,23 +140,31 @@ pub fn deduce_pair_rule<'h, 'v>(words_t :&Vec<&'v str>, rule: &(Rule<'h, 'v>, Ru
                             Template((_, p)) => dictionary[next_word] == *p || next_phrase_len >= 2,
                             Voca(v) => next_word == *v
                         } {
-                            if let Template((_, p)) = next_pattern {
+                            if let Template(_) = next_pattern {
                                 let mut clear :HashSet<usize> = HashSet::new();
+                                let mut left = t.len();
                                 for word in &words_t[index..] {
-                                    if let Ok(_) = match_phrase(&words_t[index+i-1..].to_vec(), p, rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|&x|x).collect();(x.0.to_string(), k)}).collect(), &dictionary, 1) {
+                                    // if let Ok(_) = match_phrase(&words_t[index+i-1..].to_vec(), p, rules.iter().map(|x|{let k:Vec<&(Rule, Rule)>=x.1.iter().map(|&x|x).collect();(x.0.to_string(), k)}).collect(), &dictionary, 1) {
+                                    if left == 0 {
                                         break;
                                     }
                                     else {
-                                        let part = dictionary[word];
-                                        for pattern in t {
-                                            if let Template((i, p)) = pattern {
-                                                if p == part {
-                                                    if !clear.contains(i) {
-                                                        template.push(Template((*i, dictionary[word].to_string())));
-                                                        clear.insert(*i);
+                                        if let Some(part) = dictionary.get(word) {
+                                            for pattern in t {
+                                                if let Template((i, p)) = pattern {
+                                                    if p == part {
+                                                        if !clear.contains(i) {
+                                                            template.push(Template((*i, dictionary[word].to_string())));
+                                                            clear.insert(*i);
+                                                            left -= 1;
+                                                        }
                                                     }
                                                 }
                                             }
+                                        }
+                                        else {
+                                            template.push(Voca(word));
+                                            left -= 1;
                                         }
                                         i += 1;
                                     }
